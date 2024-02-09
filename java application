@@ -1,0 +1,125 @@
+=========================1>>Dockerfile
+FROM openjdk:11-jre-slim
+WORKDIR /app
+COPY target/my-java-app.jar .
+CMD ["java", "-jar", "my-java-app.jar"]
+
+
+=============================2>>Kubernetes Manifests
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-java-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-java-app
+  template:
+    metadata:
+      labels:
+        app: my-java-app
+    spec:
+      containers:
+      - name: my-java-app
+        image: gcr.io/your-project/my-java-app:latest
+        ports:
+        - containerPort: 8080
+
+================================2-1 service
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-java-app-service
+spec:
+  selector:
+    app: my-java-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: LoadBalancer
+
+
+=============================3>>Terraform Configuration Files
+provider "google" {
+  credentials = file("credentials.json")
+  project     = "your-project-id"
+  region      = "us-central1"
+}
+
+resource "google_container_cluster" "cluster" {
+  name     = "my-gke-cluster"
+  location = "us-central1"
+
+  node_pool {
+    name       = "default-pool"
+    machine_type = "e2-medium"
+    disk_size_gb = 100
+    node_count = 3
+  }
+}
+
+
+===================================4>>CI/CD Pipeline Configuration
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Set up JDK 11
+      uses: actions/setup-java@v2
+      with:
+        java-version: '11'
+    - name: Build with Maven
+      run: mvn clean package
+    - name: Build Docker image
+      run: docker build -t gcr.io/$GOOGLE_PROJECT_ID/my-java-app:latest .
+    - name: Push Docker image
+      run: |
+        echo ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }} | docker login -u _json_key --password-stdin https://gcr.io
+        docker push gcr.io/$GOOGLE_PROJECT_ID/my-java-app:latest
+    - name: Deploy with kubectl
+      run: kubectl apply -f kubernetes/
+
+
+
+
+
+
+
+
+
+
+
+
+Infrastructure
+provider "google" {
+  credentials = file("credentials.json")
+  project     = "your-project-id"
+  region      = "us-central1"
+}
+
+resource "google_container_cluster" "cluster" {
+  name     = "my-gke-cluster"
+  location = "us-central1"
+
+  node_pool {
+    name       = "default-pool"
+    machine_type = "e2-medium"
+    disk_size_gb = 100
+    node_count = 3
+  }
+}
+
+
+
+=======================2
